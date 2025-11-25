@@ -1,0 +1,84 @@
+mutation CreateSeedData @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") @transaction {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      username: "demouser1",
+      email: "demouser1@example.com",
+      passwordHash: "passwordhash1",
+      role: "admin"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      username: "demouser2",
+      email: "demouser2@example.com",
+      passwordHash: "passwordhash2",
+      role: "member"
+    }
+  ])
+  customer_insertMany(data: [
+    {
+      id: "660e8400-e29b-41d4-a716-446655440000",
+      firstName: "Bob",
+      lastName: "User",
+      email: "bob@example.com",
+      createdAt: "2024-01-01T00:00:00Z"
+    },
+    {
+      id: "660e8400-e29b-41d4-a716-446655440001",
+      firstName: "Alice",
+      lastName: "User",
+      email: "alice@example.com",
+      createdAt: "2024-01-02T00:00:00Z"
+    }
+  ])
+  product_insertMany(data: [
+    {
+      id: "770e8400-e29b-41d4-a716-446655440000",
+      name: "Example Product 1",
+      price: 25.00,
+      stockQuantity: 100,
+      createdAt: "2024-01-03T00:00:00Z"
+    },
+    {
+      id: "770e8400-e29b-41d4-a716-446655440001",
+      name: "Example Product 2",
+      price: 50.00,
+      stockQuantity: 50,
+      createdAt: "2024-01-04T00:00:00Z"
+    }
+  ])
+  sale_insertMany(data: [
+    {
+      id: "880e8400-e29b-41d4-a716-446655440000",
+      customerId: "660e8400-e29b-41d4-a716-446655440000",
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      saleDate: "2024-01-05T00:00:00Z",
+      totalAmount: 75.00,
+      createdAt: "2024-01-05T00:00:00Z"
+    },
+    {
+      id: "880e8400-e29b-41d4-a716-446655440001",
+      customerId: "660e8400-e29b-41d4-a716-446655440001",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      saleDate: "2024-01-06T00:00:00Z",
+      totalAmount: 100.00,
+      createdAt: "2024-01-06T00:00:00Z"
+    }
+  ])
+  saleItem_insertMany(data: [
+    {
+      saleId: "880e8400-e29b-41d4-a716-446655440000",
+      productId: "770e8400-e29b-41d4-a716-446655440000",
+      quantity: 1,
+      unitPrice: 25.00,
+      subtotal: 25.00
+    },
+    {
+      saleId: "880e8400-e29b-41d4-a716-446655440000",
+      productId: "770e8400-e29b-41d4-a716-446655440001",
+      quantity: 1,
+      unitPrice: 50.00,
+      subtotal: 50.00
+    }
+  ])
+}

@@ -1,0 +1,41 @@
+mutation CreateNewCustomer(
+    $firstName: String!
+    $lastName: String!
+    $email: String
+) @auth(level: USER) {
+  customer_insert(
+        data: {
+            firstName: $firstName,
+            lastName: $lastName,
+            email: $email
+        }
+    )
+}
+
+query GetProductsByCategory($category: String) @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  products(where: {category: {eq: $category}}) {
+    id
+    name
+    description
+    price
+    imageUrl
+  }
+}
+
+mutation UpdateProductStock($id: UUID!, $stockQuantity: Int!) @auth(level: USER) {
+  product_update(
+        id: $id,
+        data: {
+            stockQuantity: $stockQuantity
+        }
+    )
+}
+
+query GetSalesForUser @auth(level: USER) {
+  sales(where: {userId: {eq_expr: "auth.uid"}}) {
+    id
+    saleDate
+    totalAmount
+    paymentMethod
+  }
+}
