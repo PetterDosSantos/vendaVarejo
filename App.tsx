@@ -1,4 +1,4 @@
-// App.js
+// App.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -20,33 +20,63 @@ import {
   ActivityIndicator
 } from 'react-native';
 
-// Import Firebase
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, onSnapshot, query, where } from 'firebase/firestore';
-
 const { width } = Dimensions.get('window');
 
-// Configuração do Firebase
-const firebaseConfig = {
-  apiKey: "sua-api-key",
-  authDomain: "seu-projeto.firebaseapp.com",
-  projectId: "seu-projeto-id",
-  storageBucket: "seu-projeto.appspot.com",
-  messagingSenderId: "seu-sender-id",
-  appId: "seu-app-id"
-};
+// Interfaces para tipagem
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  category: string;
+  stock: number;
+  image: string;
+  createdAt?: string;
+}
 
-// Inicializar Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+interface CartItem extends Product {
+  quantity: number;
+}
+
+interface User {
+  id: string;
+  username: string;
+  password: string;
+  role: 'admin' | 'seller' | 'customer';
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  profileImage: string;
+  createdAt: string;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  date: Date;
+}
 
 export default function App() {
-  // Estados da aplicação
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Estados da aplicação com tipagem
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [loginData, setLoginData] = useState({ username: '', password: '' });
-  const [activeScreen, setActiveScreen] = useState('products');
-  const [cart, setCart] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [registerData, setRegisterData] = useState({
+    name: '',
+    email: '',
+    username: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    address: '',
+    profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
+  });
+  const [activeScreen, setActiveScreen] = useState<string>('products');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [newProduct, setNewProduct] = useState({
     name: '',
     price: '',
@@ -55,63 +85,135 @@ export default function App() {
     stock: '',
     image: ''
   });
-  const [sidebarVisible, setSidebarVisible] = useState(false);
-  const [userInfo, setUserInfo] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState<boolean>(false);
+  const [userInfo, setUserInfo] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [profileModalVisible, setProfileModalVisible] = useState<boolean>(false);
+  const [imageModalVisible, setImageModalVisible] = useState<boolean>(false);
+  const [editProfileData, setEditProfileData] = useState<Partial<User>>({});
   
   // Animação do menu lateral
   const slideAnim = useState(new Animated.Value(-300))[0];
 
-  // Dados de usuários
-  const users = [
-    { username: 'admin', password: '1234', role: 'admin', name: 'Administrador' },
-    { username: 'vendedor', password: '1234', role: 'seller', name: 'Vendedor' },
-    { username: 'cliente', password: '1234', role: 'customer', name: 'Cliente' }
+  // Dados de usuários (simulando um banco de dados local)
+  const [users, setUsers] = useState<User[]>([
+    { 
+      id: '1', 
+      username: 'admin', 
+      password: '1234', 
+      role: 'admin', 
+      name: 'Administrador',
+      email: 'admin@varejo.com',
+      phone: '(11) 9999-9999',
+      address: 'Rua Principal, 123 - São Paulo, SP',
+      profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+      createdAt: new Date().toISOString()
+    },
+    { 
+      id: '2', 
+      username: 'vendedor', 
+      password: '1234', 
+      role: 'seller', 
+      name: 'Vendedor',
+      email: 'vendedor@varejo.com',
+      phone: '(11) 8888-8888',
+      address: 'Av. Comercial, 456 - São Paulo, SP',
+      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      createdAt: new Date().toISOString()
+    },
+    { 
+      id: '3', 
+      username: 'cliente', 
+      password: '1234', 
+      role: 'customer', 
+      name: 'Cliente',
+      email: 'cliente@email.com',
+      phone: '(11) 7777-7777',
+      address: 'Rua do Cliente, 789 - São Paulo, SP',
+      profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150',
+      createdAt: new Date().toISOString()
+    }
+  ]);
+
+  // Imagens pré-definidas para escolha
+  const profileImages = [
+    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150',
+    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+    'https://images.unsplash.com/photo-1519244703995-f4e0f30006d5?w=150',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150'
   ];
 
-  // Carregar produtos do Firebase
+  // Carregar produtos iniciais
   useEffect(() => {
-    loadProductsFromFirebase();
-  }, []);
-
-  // Função para carregar produtos do Firebase
-  const loadProductsFromFirebase = async () => {
-    try {
-      setLoading(true);
-      const querySnapshot = await getDocs(collection(db, 'products'));
-      const productsData: ((prevState: never[]) => never[]) | { id: string; }[] = [];
-      querySnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
-      });
-      setProducts(productsData);
-    } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os produtos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Ouvir mudanças em tempo real nos produtos
-  useEffect(() => {
-    const q = query(collection(db, 'products'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const productsData: ((prevState: never[]) => never[]) | { id: string; }[] = [];
-      querySnapshot.forEach((doc) => {
-        productsData.push({ id: doc.id, ...doc.data() });
-      });
-      setProducts(productsData);
-    });
-
-    return () => unsubscribe();
+    const initialProducts: Product[] = [
+      {
+        id: '1',
+        name: 'Camiseta Básica',
+        price: 29.90,
+        description: 'Camiseta 100% algodão, diversas cores',
+        category: 'Roupas',
+        stock: 15,
+        image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=150'
+      },
+      {
+        id: '2',
+        name: 'Tênis Esportivo',
+        price: 199.90,
+        description: 'Tênis para corrida, amortecimento superior',
+        category: 'Calçados',
+        stock: 8,
+        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=150'
+      },
+      {
+        id: '3',
+        name: 'Smartphone Android',
+        price: 1299.90,
+        description: '128GB, 6GB RAM, câmera tripla',
+        category: 'Eletrônicos',
+        stock: 5,
+        image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=150'
+      },
+      {
+        id: '4',
+        name: 'Notebook Gamer',
+        price: 3599.90,
+        description: 'Intel i7, 16GB RAM, RTX 3050',
+        category: 'Eletrônicos',
+        stock: 3,
+        image: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=150'
+      },
+      {
+        id: '5',
+        name: 'Fone Bluetooth',
+        price: 159.90,
+        description: 'Cancelamento de ruído, bateria 30h',
+        category: 'Eletrônicos',
+        stock: 12,
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=150'
+      },
+      {
+        id: '6',
+        name: 'Moletom Hoodie',
+        price: 89.90,
+        description: 'Moletom com capuz, algodão',
+        category: 'Roupas',
+        stock: 20,
+        image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=150'
+      }
+    ];
+    setProducts(initialProducts);
   }, []);
 
   // Função simplificada para notificações locais
-  const showLocalNotification = (title: string, message: string | undefined) => {
+  const showLocalNotification = (title: string, message: string) => {
     Vibration.vibrate(500);
     
-    const newNotification = {
+    const newNotification: Notification = {
       id: Date.now().toString(),
       title,
       message,
@@ -119,50 +221,124 @@ export default function App() {
       date: new Date()
     };
     
-    setNotifications((prev) => [newNotification, ...prev]);
+    setNotifications(prev => [newNotification, ...prev]);
     Alert.alert(title, message);
   };
 
-  // Salvar carrinho no Firebase
-  const saveCartToFirebase = async (userId: any, cartData: never[], total: number) => {
-    try {
-      const saleData = {
-        userId,
-        items: cartData,
-        total,
-        date: new Date().toISOString(),
-        status: 'completed'
-      };
-      
-      await addDoc(collection(db, 'sales'), saleData);
-      console.log('Venda salva no Firebase');
-    } catch (error) {
-      console.error('Erro ao salvar venda:', error);
+  // Função para cadastro de novo usuário
+  const handleRegister = () => {
+    // Validações
+    if (!registerData.name || !registerData.email || !registerData.username || !registerData.password) {
+      Alert.alert('Erro', 'Preencha todos os campos obrigatórios');
+      return;
     }
+
+    if (registerData.password !== registerData.confirmPassword) {
+      Alert.alert('Erro', 'As senhas não coincidem');
+      return;
+    }
+
+    if (registerData.password.length < 4) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 4 caracteres');
+      return;
+    }
+
+    // Verificar se usuário já existe
+    const userExists = users.find(user => 
+      user.username === registerData.username || user.email === registerData.email
+    );
+
+    if (userExists) {
+      Alert.alert('Erro', 'Usuário ou email já cadastrado');
+      return;
+    }
+
+    // Criar novo usuário
+    const newUser: User = {
+      id: Date.now().toString(),
+      name: registerData.name,
+      email: registerData.email,
+      username: registerData.username,
+      password: registerData.password,
+      phone: registerData.phone || '',
+      address: registerData.address || '',
+      profileImage: registerData.profileImage,
+      role: 'customer', // Novo usuário sempre é cliente
+      createdAt: new Date().toISOString()
+    };
+
+    // Adicionar à lista de usuários
+    setUsers(prev => [...prev, newUser]);
+    
+    // Limpar formulário
+    setRegisterData({
+      name: '',
+      email: '',
+      username: '',
+      password: '',
+      confirmPassword: '',
+      phone: '',
+      address: '',
+      profileImage: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
+    });
+
+    // Voltar para login
+    setIsRegistering(false);
+    
+    Alert.alert('Sucesso', 'Cadastro realizado com sucesso! Faça login para continuar.');
   };
 
-  // Adicionar produto ao Firebase
-  const addProductToFirebase = async (product: { name: string; price: number; description: string; category: string; stock: number; image: string; createdAt: string; }) => {
-    try {
-      const docRef = await addDoc(collection(db, 'products'), product);
-      console.log('Produto adicionado com ID: ', docRef.id);
-      return docRef.id;
-    } catch (error) {
-      console.error('Erro ao adicionar produto:', error);
-      throw error;
+  // Função para editar perfil
+  const handleEditProfile = () => {
+    if (!editProfileData.name || !editProfileData.email) {
+      Alert.alert('Erro', 'Nome e email são obrigatórios');
+      return;
     }
+
+    // Atualizar usuário
+    const updatedUsers = users.map(user => 
+      user.id === userInfo?.id 
+        ? { ...user, ...editProfileData }
+        : user
+    );
+
+    setUsers(updatedUsers);
+    setUserInfo(prev => prev ? { ...prev, ...editProfileData } : null);
+    setProfileModalVisible(false);
+    
+    showLocalNotification('✅ Perfil Atualizado', 'Seus dados foram atualizados com sucesso!');
   };
 
-  // Atualizar produto no Firebase
-  const updateProductInFirebase = async (productId: string, updatedData: { stock: number; }) => {
-    try {
-      const productRef = doc(db, 'products', productId);
-      await updateDoc(productRef, updatedData);
-      console.log('Produto atualizado:', productId);
-    } catch (error) {
-      console.error('Erro ao atualizar produto:', error);
-      throw error;
-    }
+  // Função para alterar foto de perfil
+  const handleChangeProfileImage = (imageUrl: string) => {
+    const updatedUsers = users.map(user => 
+      user.id === userInfo?.id 
+        ? { ...user, profileImage: imageUrl }
+        : user
+    );
+
+    setUsers(updatedUsers);
+    setUserInfo(prev => prev ? { ...prev, profileImage: imageUrl } : null);
+    setImageModalVisible(false);
+    
+    showLocalNotification('📸 Foto Atualizada', 'Sua foto de perfil foi alterada com sucesso!');
+  };
+
+  // Função para abrir modal de edição de perfil
+  const openEditProfile = () => {
+    setEditProfileData({
+      name: userInfo?.name || '',
+      email: userInfo?.email || '',
+      phone: userInfo?.phone || '',
+      address: userInfo?.address || '',
+      profileImage: userInfo?.profileImage || ''
+    });
+    setProfileModalVisible(true);
+  };
+
+  // Função para abrir modal de seleção de imagem
+  const openImageSelector = () => {
+    setImageModalVisible(true);
   };
 
   // Função para notificação de promoção
@@ -222,13 +398,13 @@ export default function App() {
   };
 
   // Navegar para uma tela
-  const navigateTo = (screen: React.SetStateAction<string>) => {
+  const navigateTo = (screen: string) => {
     setActiveScreen(screen);
     toggleSidebar();
   };
 
   // Adicionar ao carrinho
-  const addToCart = (product) => {
+  const addToCart = (product: Product) => {
     if (product.stock > 0) {
       const existingItem = cart.find(item => item.id === product.id);
       
@@ -248,7 +424,11 @@ export default function App() {
           Alert.alert('Estoque insuficiente', 'Quantidade máxima atingida');
         }
       } else {
-        setCart([...cart, { ...product, quantity: 1 }]);
+        const cartItem: CartItem = {
+          ...product,
+          quantity: 1
+        };
+        setCart([...cart, cartItem]);
         
         showLocalNotification(
           '🛒 Item Adicionado',
@@ -261,7 +441,7 @@ export default function App() {
   };
 
   // Remover do carrinho
-  const removeFromCart = (productId) => {
+  const removeFromCart = (productId: string) => {
     const product = cart.find(item => item.id === productId);
     setCart(cart.filter(item => item.id !== productId));
     
@@ -271,6 +451,26 @@ export default function App() {
         `${product.name} foi removido do carrinho.`
       );
     }
+  };
+
+  // Atualizar quantidade no carrinho
+  const updateQuantity = (productId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+
+    const product = products.find(p => p.id === productId);
+    if (product && newQuantity > product.stock) {
+      Alert.alert('Estoque insuficiente', 'Quantidade solicitada maior que o estoque disponível');
+      return;
+    }
+
+    setCart(cart.map(item =>
+      item.id === productId
+        ? { ...item, quantity: newQuantity }
+        : item
+    ));
   };
 
   // Finalizar compra
@@ -293,20 +493,29 @@ export default function App() {
             try {
               setLoading(true);
               
-              // Atualizar estoque no Firebase
-              const updatePromises = cart.map(async (cartItem) => {
-                const product = products.find(p => p.id === cartItem.id);
-                if (product) {
+              // Atualizar estoque
+              const updatedProducts = products.map(product => {
+                const cartItem = cart.find(item => item.id === product.id);
+                if (cartItem) {
                   const newStock = product.stock - cartItem.quantity;
-                  await updateProductInFirebase(product.id, { stock: newStock });
+                  
+                  // Verificar estoque baixo
+                  if (newStock <= 3 && newStock > 0) {
+                    showLocalNotification(
+                      '⚠️ Estoque Baixo',
+                      `O produto ${product.name} está com apenas ${newStock} unidades!`
+                    );
+                  }
+                  
+                  return {
+                    ...product,
+                    stock: newStock
+                  };
                 }
+                return product;
               });
               
-              await Promise.all(updatePromises);
-              
-              // Salvar venda no Firebase
-              await saveCartToFirebase(userInfo?.username, cart, total);
-              
+              setProducts(updatedProducts);
               setCart([]);
               
               showLocalNotification(
@@ -336,7 +545,8 @@ export default function App() {
     try {
       setLoading(true);
       
-      const product = {
+      const product: Product = {
+        id: Date.now().toString(),
         name: newProduct.name,
         price: parseFloat(newProduct.price),
         description: newProduct.description,
@@ -346,7 +556,7 @@ export default function App() {
         createdAt: new Date().toISOString()
       };
 
-      await addProductToFirebase(product);
+      setProducts(prev => [...prev, product]);
       
       setNewProduct({
         name: '',
@@ -396,42 +606,160 @@ export default function App() {
     Alert.alert('Sucesso', 'Todas as notificações foram limpas!');
   };
 
-  // Tela de Login
+  // Tela de Login/Cadastro
   if (!isLoggedIn) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar backgroundColor="#2c3e50" />
         <View style={styles.loginContainer}>
           <Text style={styles.loginTitle}>🛒 Varejo App</Text>
-          <Text style={styles.loginSubtitle}>Faça login para continuar</Text>
+          <Text style={styles.loginSubtitle}>
+            {isRegistering ? 'Crie sua conta' : 'Faça login para continuar'}
+          </Text>
           
-          <TextInput
-            style={styles.input}
-            placeholder="Usuário"
-            value={loginData.username}
-            onChangeText={(text) => setLoginData({...loginData, username: text})}
-            placeholderTextColor="#999"
-          />
-          
-          <TextInput
-            style={styles.input}
-            placeholder="Senha"
-            value={loginData.password}
-            onChangeText={(text) => setLoginData({...loginData, password: text})}
-            secureTextEntry
-            placeholderTextColor="#999"
-          />
-          
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Entrar</Text>
-          </TouchableOpacity>
+          {isRegistering ? (
+            // Formulário de Cadastro
+            <ScrollView style={styles.registerForm} showsVerticalScrollIndicator={false}>
+              <View style={styles.imageSelectionSection}>
+                <Text style={styles.sectionLabel}>Foto de Perfil</Text>
+                <View style={styles.imagePreviewContainer}>
+                  <Image 
+                    source={{ uri: registerData.profileImage }} 
+                    style={styles.registerImagePreview}
+                  />
+                  <TouchableOpacity 
+                    style={styles.changeImageButton}
+                    onPress={() => {
+                      // Durante o cadastro, podemos definir uma imagem padrão
+                      setRegisterData({
+                        ...registerData,
+                        profileImage: profileImages[Math.floor(Math.random() * profileImages.length)]
+                      });
+                    }}
+                  >
+                    <Text style={styles.changeImageButtonText}>🔄</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.imageHelpText}>
+                  Uma foto será escolhida aleatoriamente para você
+                </Text>
+              </View>
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Nome Completo*"
+                value={registerData.name}
+                onChangeText={(text) => setRegisterData({...registerData, name: text})}
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Email*"
+                value={registerData.email}
+                onChangeText={(text) => setRegisterData({...registerData, email: text})}
+                keyboardType="email-address"
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Usuário*"
+                value={registerData.username}
+                onChangeText={(text) => setRegisterData({...registerData, username: text})}
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Telefone"
+                value={registerData.phone}
+                onChangeText={(text) => setRegisterData({...registerData, phone: text})}
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Endereço"
+                value={registerData.address}
+                onChangeText={(text) => setRegisterData({...registerData, address: text})}
+                placeholderTextColor="#999"
+                multiline
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Senha*"
+                value={registerData.password}
+                onChangeText={(text) => setRegisterData({...registerData, password: text})}
+                secureTextEntry
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Confirmar Senha*"
+                value={registerData.confirmPassword}
+                onChangeText={(text) => setRegisterData({...registerData, confirmPassword: text})}
+                secureTextEntry
+                placeholderTextColor="#999"
+              />
+              
+              <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+                <Text style={styles.registerButtonText}>Cadastrar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.switchAuthButton}
+                onPress={() => setIsRegistering(false)}
+              >
+                <Text style={styles.switchAuthText}>
+                  Já tem uma conta? <Text style={styles.switchAuthLink}>Faça login</Text>
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            // Formulário de Login
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Usuário"
+                value={loginData.username}
+                onChangeText={(text) => setLoginData({...loginData, username: text})}
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Senha"
+                value={loginData.password}
+                onChangeText={(text) => setLoginData({...loginData, password: text})}
+                secureTextEntry
+                placeholderTextColor="#999"
+              />
+              
+              <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+                <Text style={styles.loginButtonText}>Entrar</Text>
+              </TouchableOpacity>
 
-          <View style={styles.loginInfo}>
-            <Text style={styles.loginInfoText}>Usuários de teste:</Text>
-            <Text style={styles.loginInfoText}>admin / 1234 (Administrador)</Text>
-            <Text style={styles.loginInfoText}>vendedor / 1234 (Vendedor)</Text>
-            <Text style={styles.loginInfoText}>cliente / 1234 (Cliente)</Text>
-          </View>
+              <TouchableOpacity 
+                style={styles.switchAuthButton}
+                onPress={() => setIsRegistering(true)}
+              >
+                <Text style={styles.switchAuthText}>
+                  Não tem conta? <Text style={styles.switchAuthLink}>Cadastre-se</Text>
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.loginInfo}>
+                <Text style={styles.loginInfoText}>Usuários de teste:</Text>
+                <Text style={styles.loginInfoText}>admin / 1234 (Administrador)</Text>
+                <Text style={styles.loginInfoText}>vendedor / 1234 (Vendedor)</Text>
+                <Text style={styles.loginInfoText}>cliente / 1234 (Cliente)</Text>
+              </View>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -452,6 +780,153 @@ export default function App() {
         </View>
       )}
       
+      {/* Modal de Edição de Perfil */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={profileModalVisible}
+        onRequestClose={() => setProfileModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Editar Perfil</Text>
+            
+            <ScrollView style={styles.modalForm}>
+              <View style={styles.imageSelectionSection}>
+                <Text style={styles.sectionLabel}>Foto de Perfil</Text>
+                <View style={styles.imagePreviewContainer}>
+                  <Image 
+                    source={{ uri: editProfileData.profileImage || userInfo?.profileImage }} 
+                    style={styles.modalImagePreview}
+                  />
+                  <TouchableOpacity 
+                    style={styles.changeImageButton}
+                    onPress={() => {
+                      setProfileModalVisible(false);
+                      setTimeout(() => setImageModalVisible(true), 300);
+                    }}
+                  >
+                    <Text style={styles.changeImageButtonText}>📸</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Nome Completo*"
+                value={editProfileData.name}
+                onChangeText={(text) => setEditProfileData({...editProfileData, name: text})}
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Email*"
+                value={editProfileData.email}
+                onChangeText={(text) => setEditProfileData({...editProfileData, email: text})}
+                keyboardType="email-address"
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={styles.input}
+                placeholder="Telefone"
+                value={editProfileData.phone}
+                onChangeText={(text) => setEditProfileData({...editProfileData, phone: text})}
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
+              />
+              
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Endereço"
+                value={editProfileData.address}
+                onChangeText={(text) => setEditProfileData({...editProfileData, address: text})}
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={3}
+              />
+            </ScrollView>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setProfileModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleEditProfile}
+              >
+                <Text style={styles.saveButtonText}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Seleção de Imagem */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={imageModalVisible}
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.imageModalContent]}>
+            <Text style={styles.modalTitle}>Escolher Foto de Perfil</Text>
+            
+            <View style={styles.currentImageContainer}>
+              <Text style={styles.currentImageText}>Foto Atual:</Text>
+              <Image 
+                source={{ uri: userInfo?.profileImage }} 
+                style={styles.currentImage}
+              />
+            </View>
+            
+            <Text style={styles.imagesGridTitle}>Selecione uma nova foto:</Text>
+            <ScrollView style={styles.imagesGridContainer}>
+              <View style={styles.imagesGrid}>
+                {profileImages.map((imageUrl, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.imageOption,
+                      userInfo?.profileImage === imageUrl && styles.selectedImageOption
+                    ]}
+                    onPress={() => handleChangeProfileImage(imageUrl)}
+                  >
+                    <Image 
+                      source={{ uri: imageUrl }} 
+                      style={styles.imageOptionThumb}
+                    />
+                    {userInfo?.profileImage === imageUrl && (
+                      <View style={styles.selectedIndicator}>
+                        <Text style={styles.selectedIndicatorText}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setImageModalVisible(false);
+                  setTimeout(() => setProfileModalVisible(true), 300);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Voltar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
       {/* Overlay para fechar menu */}
       {sidebarVisible && (
         <TouchableOpacity 
@@ -464,16 +939,25 @@ export default function App() {
       {/* Menu Lateral */}
       <Animated.View style={[styles.sidebar, { left: slideAnim }]}>
         <View style={styles.sidebarHeader}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150' }}
-            style={styles.userAvatar}
-          />
+          <View style={styles.avatarContainer}>
+            <Image 
+              source={{ uri: userInfo?.profileImage }} 
+              style={styles.userAvatar}
+            />
+            <TouchableOpacity 
+              style={styles.avatarEditBadge}
+              onPress={openImageSelector}
+            >
+              <Text style={styles.avatarEditText}>📸</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{userInfo?.name}</Text>
             <Text style={styles.userRole}>
               {userInfo?.role === 'admin' ? 'Administrador' : 
                userInfo?.role === 'seller' ? 'Vendedor' : 'Cliente'}
             </Text>
+            <Text style={styles.userEmail}>{userInfo?.email}</Text>
           </View>
         </View>
 
@@ -512,7 +996,7 @@ export default function App() {
           )}
         </TouchableOpacity>
         
-        <Text style={styles.headerTitle}>🛒 Varejo App + Firebase</Text>
+        <Text style={styles.headerTitle}>🛒 Varejo App</Text>
         
         <TouchableOpacity onPress={() => navigateTo('cart')} style={styles.cartHeaderButton}>
           <Text style={styles.cartIcon}>🛒</Text>
@@ -553,7 +1037,7 @@ export default function App() {
                       <Text style={styles.productDescription}>{item.description}</Text>
                       <Text style={styles.productCategory}>Categoria: {item.category}</Text>
                       <View style={styles.productFooter}>
-                        <Text style={styles.productPrice}>R$ {item.price?.toFixed(2)}</Text>
+                        <Text style={styles.productPrice}>R$ {item.price.toFixed(2)}</Text>
                         <Text style={styles.productStock}>Estoque: {item.stock}</Text>
                       </View>
                       <TouchableOpacity 
@@ -597,10 +1081,25 @@ export default function App() {
                       <Image source={{ uri: item.image }} style={styles.cartImage} />
                       <View style={styles.cartInfo}>
                         <Text style={styles.cartName}>{item.name}</Text>
-                        <Text style={styles.cartPrice}>R$ {item.price?.toFixed(2)}</Text>
-                        <Text style={styles.cartQuantity}>Qtd: {item.quantity}</Text>
+                        <Text style={styles.cartPrice}>R$ {item.price.toFixed(2)}</Text>
+                        <View style={styles.quantityContainer}>
+                          <TouchableOpacity 
+                            style={styles.quantityButton}
+                            onPress={() => updateQuantity(item.id, item.quantity - 1)}
+                          >
+                            <Text style={styles.quantityButtonText}>-</Text>
+                          </TouchableOpacity>
+                          <Text style={styles.quantityText}>{item.quantity}</Text>
+                          <TouchableOpacity 
+                            style={styles.quantityButton}
+                            onPress={() => updateQuantity(item.id, item.quantity + 1)}
+                            disabled={item.quantity >= item.stock}
+                          >
+                            <Text style={styles.quantityButtonText}>+</Text>
+                          </TouchableOpacity>
+                        </View>
                         <Text style={styles.cartSubtotal}>
-                          Subtotal: R$ {((item.price || 0) * item.quantity).toFixed(2)}
+                          Subtotal: R$ {(item.price * item.quantity).toFixed(2)}
                         </Text>
                       </View>
                       <TouchableOpacity 
@@ -614,7 +1113,7 @@ export default function App() {
                 />
                 <View style={styles.cartTotal}>
                   <Text style={styles.totalText}>
-                    Total: R$ {cart.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0).toFixed(2)}
+                    Total: R$ {cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
                   </Text>
                   <TouchableOpacity 
                     style={styles.checkoutButton} 
@@ -696,6 +1195,91 @@ export default function App() {
                   {loading ? 'Adicionando...' : 'Adicionar Produto'}
                 </Text>
               </TouchableOpacity>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Tela de Perfil */}
+        {activeScreen === 'profile' && (
+          <ScrollView style={styles.screen}>
+            <Text style={styles.screenTitle}>Meu Perfil</Text>
+            
+            <View style={styles.profileCard}>
+              <View style={styles.profileImageContainer}>
+                <Image 
+                  source={{ uri: userInfo?.profileImage }} 
+                  style={styles.profileImage}
+                />
+                <TouchableOpacity 
+                  style={styles.profileImageEditButton}
+                  onPress={openImageSelector}
+                >
+                  <Text style={styles.profileImageEditText}>📸</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.profileName}>{userInfo?.name}</Text>
+              <Text style={styles.profileEmail}>{userInfo?.email}</Text>
+              <Text style={styles.profileRole}>
+                {userInfo?.role === 'admin' ? 'Administrador' : 
+                 userInfo?.role === 'seller' ? 'Vendedor' : 'Cliente'}
+              </Text>
+              
+              <TouchableOpacity 
+                style={styles.editProfileButton}
+                onPress={openEditProfile}
+              >
+                <Text style={styles.editProfileButtonText}>✏️ Editar Perfil</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.profileInfoCard}>
+              <Text style={styles.profileSectionTitle}>Informações Pessoais</Text>
+              
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Telefone:</Text>
+                <Text style={styles.infoValue}>
+                  {userInfo?.phone || 'Não informado'}
+                </Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Endereço:</Text>
+                <Text style={styles.infoValue}>
+                  {userInfo?.address || 'Não informado'}
+                </Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Usuário:</Text>
+                <Text style={styles.infoValue}>{userInfo?.username}</Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Text style={styles.infoLabel}>Membro desde:</Text>
+                <Text style={styles.infoValue}>
+                  {userInfo?.createdAt ? new Date(userInfo.createdAt).toLocaleDateString('pt-BR') : 'Data não disponível'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.statsContainer}>
+              <Text style={styles.statsTitle}>Minhas Estatísticas</Text>
+              <View style={styles.statsGrid}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{cart.length}</Text>
+                  <Text style={styles.statLabel}>No Carrinho</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>{notifications.length}</Text>
+                  <Text style={styles.statLabel}>Notificações</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statNumber}>
+                    {products.reduce((sum, product) => sum + product.stock, 0)}
+                  </Text>
+                  <Text style={styles.statLabel}>Produtos Total</Text>
+                </View>
+              </View>
             </View>
           </ScrollView>
         )}
@@ -801,55 +1385,21 @@ export default function App() {
             </View>
             
             <View style={styles.notificationStats}>
-              <Text style={styles.statsTitle}>Estatísticas de Notificações</Text>
+              <Text style={styles.statsTitleSection}>Estatísticas de Notificações</Text>
               <View style={styles.statsGrid}>
                 <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{notifications.length}</Text>
-                  <Text style={styles.statLabel}>Recebidas</Text>
+                  <Text style={styles.statBoxNumber}>{notifications.length}</Text>
+                  <Text style={styles.statBoxLabel}>Recebidas</Text>
                 </View>
                 <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>{cart.length}</Text>
-                  <Text style={styles.statLabel}>No Carrinho</Text>
+                  <Text style={styles.statBoxNumber}>{cart.length}</Text>
+                  <Text style={styles.statBoxLabel}>No Carrinho</Text>
                 </View>
                 <View style={styles.statBox}>
-                  <Text style={styles.statNumber}>
+                  <Text style={styles.statBoxNumber}>
                     {products.filter(p => p.stock < 5).length}
                   </Text>
-                  <Text style={styles.statLabel}>Estoque Baixo</Text>
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-        )}
-
-        {/* Tela de Perfil */}
-        {activeScreen === 'profile' && (
-          <ScrollView style={styles.screen}>
-            <Text style={styles.screenTitle}>Meu Perfil</Text>
-            <View style={styles.profileCard}>
-              <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200' }}
-                style={styles.profileImage}
-              />
-              <Text style={styles.profileName}>{userInfo?.name}</Text>
-              <Text style={styles.profileRole}>
-                {userInfo?.role === 'admin' ? 'Administrador' : 
-                 userInfo?.role === 'seller' ? 'Vendedor' : 'Cliente'}
-              </Text>
-              <View style={styles.statsContainer}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{cart.length}</Text>
-                  <Text style={styles.statLabel}>No Carrinho</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>{notifications.length}</Text>
-                  <Text style={styles.statLabel}>Notificações</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statNumber}>
-                    {products.reduce((sum, product) => sum + (product.stock || 0), 0)}
-                  </Text>
-                  <Text style={styles.statLabel}>Produtos Total</Text>
+                  <Text style={styles.statBoxLabel}>Estoque Baixo</Text>
                 </View>
               </View>
             </View>
@@ -861,24 +1411,24 @@ export default function App() {
           <ScrollView style={styles.screen}>
             <Text style={styles.screenTitle}>Estatísticas</Text>
             <View style={styles.statsCard}>
-              <Text style={styles.statsTitle}>📊 Resumo da Loja</Text>
+              <Text style={styles.statsCardTitle}>📊 Resumo da Loja</Text>
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total de Produtos:</Text>
-                <Text style={styles.statValue}>{products.length}</Text>
+                <Text style={styles.statRowLabel}>Total de Produtos:</Text>
+                <Text style={styles.statRowValue}>{products.length}</Text>
               </View>
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Valor Total em Estoque:</Text>
-                <Text style={styles.statValue}>
-                  R$ {products.reduce((sum, product) => sum + ((product.price || 0) * (product.stock || 0)), 0).toFixed(2)}
+                <Text style={styles.statRowLabel}>Valor Total em Estoque:</Text>
+                <Text style={styles.statRowValue}>
+                  R$ {products.reduce((sum, product) => sum + (product.price * product.stock), 0).toFixed(2)}
                 </Text>
               </View>
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Produtos no Carrinho:</Text>
-                <Text style={styles.statValue}>{cart.length}</Text>
+                <Text style={styles.statRowLabel}>Produtos no Carrinho:</Text>
+                <Text style={styles.statRowValue}>{cart.length}</Text>
               </View>
               <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Notificações Recebidas:</Text>
-                <Text style={styles.statValue}>{notifications.length}</Text>
+                <Text style={styles.statRowLabel}>Notificações Recebidas:</Text>
+                <Text style={styles.statRowValue}>{notifications.length}</Text>
               </View>
             </View>
           </ScrollView>
@@ -904,7 +1454,7 @@ export default function App() {
                     <Image source={{ uri: item.image }} style={styles.inventoryImage} />
                     <View style={styles.inventoryInfo}>
                       <Text style={styles.inventoryName}>{item.name}</Text>
-                      <Text style={styles.inventoryPrice}>R$ {item.price?.toFixed(2)}</Text>
+                      <Text style={styles.inventoryPrice}>R$ {item.price.toFixed(2)}</Text>
                       <View style={[
                         styles.stockIndicator,
                         item.stock < 5 ? styles.lowStock : styles.normalStock
@@ -953,6 +1503,216 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2c3e50',
   },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    width: '100%',
+    maxHeight: '80%',
+  },
+  imageModalContent: {
+    maxHeight: '90%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalForm: {
+    maxHeight: 400,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#95a5a6',
+  },
+  saveButton: {
+    backgroundColor: '#3498db',
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  // Image Selection Styles
+  imageSelectionSection: {
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 10,
+  },
+  imagePreviewContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  registerImagePreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 10,
+  },
+  modalImagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  changeImageButton: {
+    position: 'absolute',
+    bottom: 5,
+    right: '35%',
+    backgroundColor: '#3498db',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  changeImageButtonText: {
+    color: 'white',
+    fontSize: 14,
+  },
+  imageHelpText: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  currentImageContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  currentImageText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 10,
+  },
+  currentImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  imagesGridContainer: {
+    maxHeight: 300,
+  },
+  imagesGridTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 15,
+  },
+  imagesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  imageOption: {
+    width: '30%',
+    marginBottom: 15,
+    borderRadius: 10,
+    padding: 5,
+  },
+  selectedImageOption: {
+    backgroundColor: '#d5f4e6',
+    borderWidth: 2,
+    borderColor: '#27ae60',
+  },
+  imageOptionThumb: {
+    width: '100%',
+    height: 80,
+    borderRadius: 8,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: '#27ae60',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedIndicatorText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  // Avatar Container
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#3498db',
+    width: 25,
+    height: 25,
+    borderRadius: 12.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#2c3e50',
+  },
+  avatarEditText: {
+    color: 'white',
+    fontSize: 12,
+  },
+  // Profile Image Container
+  profileImageContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  profileImageEditButton: {
+    position: 'absolute',
+    bottom: 5,
+    right: '40%',
+    backgroundColor: '#3498db',
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  profileImageEditText: {
+    color: 'white',
+    fontSize: 16,
+  },
   // Empty state
   emptyState: {
     flex: 1,
@@ -975,14 +1735,16 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
     textAlign: 'center',
   },
-  // ... (mantenha todos os outros estilos do código anterior)
-  // Estilos do Login
+  // Estilos do Login e Cadastro
   loginContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
     backgroundColor: '#2c3e50',
+  },
+  registerForm: {
+    width: '100%',
   },
   loginTitle: {
     fontSize: 32,
@@ -1013,9 +1775,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
+  registerButton: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#27ae60',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
   loginButtonText: {
     color: 'white',
     fontSize: 18,
+    fontWeight: 'bold',
+  },
+  registerButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  switchAuthButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  switchAuthText: {
+    color: '#bdc3c7',
+    fontSize: 14,
+  },
+  switchAuthLink: {
+    color: '#3498db',
     fontWeight: 'bold',
   },
   loginInfo: {
@@ -1072,6 +1860,11 @@ const styles = StyleSheet.create({
   userRole: {
     fontSize: 14,
     color: '#bdc3c7',
+    marginBottom: 3,
+  },
+  userEmail: {
+    fontSize: 12,
+    color: '#95a5a6',
   },
   menuItems: {
     flex: 1,
@@ -1196,6 +1989,123 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  // Estilos do Perfil
+  profileCard: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 15,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 15,
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 5,
+  },
+  profileEmail: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    marginBottom: 10,
+  },
+  profileRole: {
+    fontSize: 16,
+    color: '#3498db',
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  editProfileButton: {
+    backgroundColor: '#f39c12',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  editProfileButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  profileInfoCard: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    marginBottom: 15,
+  },
+  profileSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 15,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ecf0f1',
+  },
+  infoLabel: {
+    fontSize: 16,
+    color: '#2c3e50',
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 10,
+  },
+  statsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#e74c3c',
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginTop: 5,
   },
   // Estilos das Notificações
   notificationsHeader: {
@@ -1326,14 +2236,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  statsTitle: {
+  statsTitleSection: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2c3e50',
     marginBottom: 15,
     textAlign: 'center',
   },
-  statsGrid: {
+  statGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
@@ -1341,12 +2251,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  statNumber: {
+  statBoxNumber: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#e74c3c',
   },
-  statLabel: {
+  statBoxLabel: {
     fontSize: 12,
     color: '#7f8c8d',
     marginTop: 5,
@@ -1463,10 +2373,30 @@ const styles = StyleSheet.create({
     color: '#e74c3c',
     marginBottom: 3,
   },
-  cartQuantity: {
-    fontSize: 12,
-    color: '#7f8c8d',
-    marginBottom: 3,
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  quantityButton: {
+    backgroundColor: '#ecf0f1',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  quantityButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  quantityText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginHorizontal: 10,
   },
   cartSubtotal: {
     fontSize: 14,
@@ -1529,54 +2459,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  // Estilos do Perfil
-  profileCard: {
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 15,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginBottom: 5,
-  },
-  profileRole: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    marginBottom: 20,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 20,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#e74c3c',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    marginTop: 5,
-  },
   // Estilos das Estatísticas
   statsCard: {
     backgroundColor: 'white',
@@ -1588,7 +2470,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  statsTitle: {
+  statsCardTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#2c3e50',
@@ -1603,11 +2485,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#ecf0f1',
   },
-  statLabel: {
+  statRowLabel: {
     fontSize: 16,
     color: '#2c3e50',
   },
-  statValue: {
+  statRowValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#e74c3c',
