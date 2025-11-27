@@ -612,7 +612,7 @@ export default function App() {
       <SafeAreaView style={styles.container}>
         <StatusBar backgroundColor="#2c3e50" />
         <View style={styles.loginContainer}>
-          <Text style={styles.loginTitle}>🛒 Varejo App</Text>
+          <Text style={styles.loginTitle}>🛒 ACIMPORTS021</Text>
           <Text style={styles.loginSubtitle}>
             {isRegistering ? 'Crie sua conta' : 'Faça login para continuar'}
           </Text>
@@ -996,7 +996,7 @@ export default function App() {
           )}
         </TouchableOpacity>
         
-        <Text style={styles.headerTitle}>🛒 Varejo App</Text>
+        <Text style={styles.headerTitle}>ACIMPORTS021</Text>
         
         <TouchableOpacity onPress={() => navigateTo('cart')} style={styles.cartHeaderButton}>
           <Text style={styles.cartIcon}>🛒</Text>
